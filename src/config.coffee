@@ -24,9 +24,17 @@ nconf.argv()
 nconf.env()
 
 nconf.defaults
-  port: 1127
   baseUrl: '/'
   serverName: 'Breakpad Server'
+  network:
+    http:
+      enabled: true
+      port: 1127
+    https:
+      enabled: false
+      port: 1128
+      pfx: '/dev/null'
+      pfxPassphrase: null
   database:
     host: 'localhost'
     dialect: 'sqlite'

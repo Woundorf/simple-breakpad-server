@@ -18,6 +18,9 @@ Sequelize = require 'sequelize'
 crypto = require 'crypto'
 passport = require 'passport'
 passportLocal = require 'passport-local'
+https = require 'https'
+http = require 'http'
+fs = require 'fs'
 
 crashreportToApiJson = (crashreport) ->
   json = crashreport.toJSON()
@@ -166,7 +169,6 @@ run = ->
   breakpad.use methodOverride()
 
   baseUrl = config.get('baseUrl')
-  port = config.get('port')
   serverName = config.get('serverName')
 
   app.use baseUrl, breakpad
@@ -379,5 +381,20 @@ run = ->
       delete symfileJson.contents
       res.json symfileJson
 
-  app.listen port
-  console.log "Listening on port #{port}"
+  httpEnabled = config.get('network:http:enabled')
+  if httpEnabled
+    port = config.get('network:http:port')
+    http.createServer(app).listen(port)
+    console.log "Listening HTTP on port #{port}"
+
+  httpsEnabled = config.get('network:https:enabled')
+  if httpsEnabled
+    httpsPort = config.get('network:https:port')
+    pfx = config.get('network:https:pfx')
+    pfxPassphrase = config.get('network:https:pfxPassphrase')
+    httpsOptions =
+        pfx: fs.readFileSync pfx
+        passphrase: pfxPassphrase
+    https.createServer(httpsOptions, app).listen(httpsPort)
+    console.log "Listening HTTPS on port #{httpsPort}"
+

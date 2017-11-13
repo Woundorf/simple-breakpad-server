@@ -95,7 +95,15 @@ The configuration path is as follows:
 Here is an example configuration:
 
 ```yaml
-port: 1127
+network:
+  http:
+    enabled: true
+    port: 1127
+  https:
+    enabled: true
+    port: 1128
+    pfx: './https.pfx'
+    pfxPassphrase: 'Secure password protecting pfx private key'
 baseUrl: '/'
 serverName: 'Breakpad Server'
 database:
@@ -114,6 +122,22 @@ customFields:
     - name: 'customfile2'
   params: ['customparam']
 dataDir: '/home/myuser/.simple-breakpad-server'
+```
+
+### Network
+
+By default the server runs only on HTTP on the 1127 port. You can enable HTTPS by providing a PFX certificate (public + private keys in a single file).
+
+```yaml
+network:
+  http:
+    enabled: true
+    port: 1127
+  https:
+    enabled: true
+    port: 1128
+    pfx: './https.pfx'
+    pfxPassphrase: 'Secure password protecting pfx private key'
 ```
 
 ### Database configuration
