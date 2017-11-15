@@ -353,8 +353,9 @@ run = ->
         return res.status(404).send 'Crash report field is not a file'
 
       # Find appropriate downloadAs file name
-      filename = config.get("customFields:filesById:#{field}:downloadAs") || field
-      filename = filename.replace('{{id}}', req.params.id)
+      fileDefinition = config.get("crashreports:customFields:files").find(() -> return this if this.name = field)
+      console.log fileDefinition
+      filename = fileDefinition.downloadAs.replace('{{id}}', req.params.id)
 
       res.setHeader('content-disposition', "attachment; filename=\"#{filename}\"")
       res.send(contents)

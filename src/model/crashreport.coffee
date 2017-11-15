@@ -14,35 +14,11 @@ symbolsPath = config.getSymbolsPath()
 # custom fields should have 'files' and 'params'
 customFields = config.get('crashreports:customFields') || {}
 
-Product = sequelize.define('crashreport_product',
-  id:
-    type: Sequelize.INTEGER
-    autoIncrement: yes
-    primaryKey: yes
-  value:
-    type: Sequelize.STRING
-)
-
-Version = sequelize.define('crashreport_version',
-  id:
-    type: Sequelize.INTEGER
-    autoIncrement: yes
-    primaryKey: yes
-  value:
-    type: Sequelize.STRING
-)
-
 schema =
   id:
     type: Sequelize.INTEGER
     autoIncrement: yes
     primaryKey: yes
-  product_id:
-    type: Sequelize.INTEGER
-  version_id:
-    type: Sequelize.INTEGER
-  ip:
-    type: Sequelize.STRING
 
 options =
   indexes: [
@@ -52,14 +28,12 @@ options =
 for field in customFields.files
   schema[field.name] = Sequelize.BLOB
 
+for field in customFields.plainParams
+  schema[field] = Sequelize.STRING
+
 Crashreport = sequelize.define('crashreports', schema, options)
 
-exclude = ['product_id', 'version_id']
-
-Crashreport.belongsTo(Product, foreignKey: 'product_id', as: 'product')
-Product.hasMany(Crashreport, foreignKey: 'product_id', as: 'product')
-Crashreport.belongsTo(Version, foreignKey: 'version_id', as: 'version')
-Version.hasMany(Crashreport, foreignKey: 'version_id', as: 'version')
+exclude = []
 
 getAliasFromDbName = (dbName) ->
   alias = dbName.substring(dbName.lastIndexOf('_') + 1)
@@ -67,7 +41,7 @@ getAliasFromDbName = (dbName) ->
 
 CustomFields = []
 customFields.params.map (alias) ->
-  param = 'crashreport_' + alias.name
+  param = 'crashreport_' + alias
   customField = sequelize.define( param,
     id:
       type: Sequelize.INTEGER
@@ -76,19 +50,16 @@ customFields.params.map (alias) ->
     value:
       type: Sequelize.STRING
   )
-  foreignKey = alias.name + '_id'
-  Crashreport.belongsTo(customField, foreignKey: foreignKey, as: alias.name)
-  customField.hasMany(Crashreport, foreignKey: foreignKey, as: alias.name)
+  foreignKey = alias + '_id'
+  Crashreport.belongsTo(customField, foreignKey: foreignKey, as: alias)
+  customField.hasMany(Crashreport, foreignKey: foreignKey, as: alias)
   CustomFields.push(customField)
   exclude.push(foreignKey)
 
 Sequelize.sync
 
 Crashreport.findReportById = (param) ->
-  include = [
-    { model: Product, as: 'product'}
-    { model: Version, as: 'version' }
-  ]
+  include = []
 
   CustomFields.map (customField) ->
     alias = getAliasFromDbName(customField.name)
@@ -104,17 +75,7 @@ Crashreport.findReportById = (param) ->
 Crashreport.getAllReports = (limit, offset, query, callback) ->
   include = []
   # only fetch non-blob attributes to speed up the query
-  excludeWithBlob = ['product_id', 'version_id', 'upload_file_minidump']
-
-  productInclude = { model: Product, as: 'product'}
-  if 'product' of query && !!query['product']
-    productInclude['where'] =  { value: query['product'] }
-  include.push(productInclude)
-
-  versionInclude = { model: Version, as: 'version'}
-  if 'version' of query && !!query['version']
-    versionInclude['where'] =  { value: query['version'] }
-  include.push(versionInclude)
+  excludeWithBlob = customFields.files.map (element) -> return element.name
 
   CustomFields.map (customField) ->
     alias = getAliasFromDbName(customField.name)
@@ -139,26 +100,15 @@ Crashreport.getAllReports = (limit, offset, query, callback) ->
 
 Crashreport.getAllQueryParameters = (callback) ->
   allPromises = []
-  allPromises.push(Product.findAll())
-  allPromises.push(Version.findAll())
   CustomFields.map((customField) ->
     allPromises.push(customField.findAll())
   )
   queryParameters = {}
   Sequelize.Promise.all(allPromises).then (results) ->
     values = []
-    for product in results[0]
-      values.push(product.value)
-    queryParameters['product'] = values
-
-    values = []
-    for version in results[1]
-      values.push(version.value)
-    queryParameters['version'] = values
-
     for i in [0...CustomFields.length]
       values = []
-      for field in results[i+2]
+      for field in results[i]
         values.push(field.value)
       queryParameters[getAliasFromDbName(CustomFields[i].name)] = values
 
@@ -168,8 +118,6 @@ Crashreport.createFromRequest = (req, res, callback) ->
   props = {}
   streamOps = []
   httpPostFields = {}
-  product = undefined
-  version = undefined
 
   # Get originating request address, respecting reverse proxies (e.g.
   #   X-Forwarded-For header)
@@ -191,9 +139,9 @@ Crashreport.createFromRequest = (req, res, callback) ->
 
   req.busboy.on 'field', (fieldname, val, fieldnameTruncated, valTruncated) ->
     if fieldname == 'prod'
-      product = val
+      httpPostFields['product'] = val.toString()
     else if fieldname == 'ver'
-      version = val
+      httpPostFields['version'] = val.toString()
     else
       httpPostFields[fieldname] = val.toString()
 
@@ -204,18 +152,20 @@ Crashreport.createFromRequest = (req, res, callback) ->
         res.status 400
         throw new Error 'Form must include a "upload_file_minidump" field'
 
-      if not version
+      if not httpPostFields.hasOwnProperty('version')
         res.status 400
         throw new Error 'Form must include a "ver" field'
 
-      if not product
+      if not httpPostFields.hasOwnProperty('product')
         res.status 400
         throw new Error 'Form must include a "prod" field'
 
+      if httpPostFields.hasOwnProperty('ip')
+        res.status 400
+        throw new Error 'Form must not include a "ip" field'
+
       sequelize.transaction (t) ->
         allPromises = []
-        allPromises.push(Product.findOrCreate({where: {value: product}, transaction: t}))
-        allPromises.push(Version.findOrCreate({where: {value: version}, transaction: t}))
         postedFieldNames = []
         CustomFields.map (customField) ->
           fieldName = getAliasFromDbName(customField.name)
@@ -223,21 +173,20 @@ Crashreport.createFromRequest = (req, res, callback) ->
             postedFieldNames.push(fieldName)
             allPromises.push(customField.findOrCreate({where: {value: httpPostFields[fieldName]},transaction: t}))
 
+        for fieldName in customFields.plainParams
+          if fieldName of httpPostFields
+            props[fieldName] = httpPostFields[fieldName]
+
         Sequelize.Promise.all(allPromises).then (results) ->
 
-          props.product_id = results[0][0].id
-          props.version_id = results[1][0].id
-          for i in [2...allPromises.length]
+          for i in [0...allPromises.length]
             if !results[i]
               continue
-            customFieldId = postedFieldNames[i-2] + '_id'
+            customFieldId = postedFieldNames[i] + '_id'
             customField = results[i][0]
             props[customFieldId] = customField.id
 
-          include = [
-            { model: Product, as: 'product'}
-            { model: Version, as: 'version' }
-          ]
+          include = []
           CustomFields.map (customField) ->
             customInclude = { model: customField, as: getAliasFromDbName(customField.name) }
             include.push(customInclude)

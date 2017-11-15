@@ -55,6 +55,10 @@ schema =
     unique: COMPOSITE_INDEX
   contents: Sequelize.TEXT
 
+customSymbolFields = config.get('symbols:customFields') || {}
+for field in customSymbolFields.plainParams
+  schema[field] = Sequelize.STRING
+  
 Symfile = sequelize.define('symfiles',
   schema,
   indexes: [
@@ -76,7 +80,6 @@ Name.hasMany(Symfile, foreignKey: 'name_id', as: 'name')
 Symfile.belongsTo(Arch, foreignKey: 'arch_id', as: 'arch')
 Arch.hasMany(Symfile, foreignKey: 'arch_id', as: 'arch')
 
-customSymbolFields = config.get('symbols:customFields') || {}
 CustomFields = []
 for i in [0...customSymbolFields.params.length]
   alias = customSymbolFields.params[i]
@@ -286,6 +289,11 @@ Symfile.createFromRequest = (req, res, callback) ->
                 customFieldId = postedFieldNames[i-3] + '_id'
                 customField = results[i][0]
                 props[customFieldId] = customField.id
+
+              for fieldName in customSymbolFields.plainParams
+                if fieldName of httpPostFields
+                  props[fieldName] = httpPostFields[fieldName]
+
               Symfile.create(props, transaction: t).then () ->
                 include = [
                   { model: Name, as: 'name'}

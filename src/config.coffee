@@ -47,42 +47,52 @@ nconf.defaults
     customFields:
       files: []
       params: []
+      plainParams: []
   symbols:
     order: ['os', 'name', 'arch', 'code', 'created' ]
     customFields:
       params: []
+      plainParams: []
   dataDir: SBS_HOME
 
-# Post-process custom files and params
-customFields = nconf.get('crashreports:customFields')
+# Converts an array of single strings or json entries to an standarized file definition json like { name: 'comments', downloadAs: '{{id}}.txt' }
+normalizeFileList = (files) ->
+  return files.map (element) ->
+    normalized = {}
+    normalized.name = element if typeof element is 'string'
+    normalized.name = element.name if typeof element.name is 'string'
+    throw new Error 'Impossible to normalize file entry, name is undefined' if not normalized.name
+    if typeof element.downloadAs is 'string'
+      normalized.downloadAs = element.downloadAs
+    else
+      normalized.downloadAs = normalized.name + '.{{id}}.bin'
+    return normalized
 
-# Ensure array
-customFields.files = customFields.files || []
-# Always add upload_file_minidump file as first file
-customFields.files.splice(0, 0,
-  name: 'upload_file_minidump'
-  downloadAs: 'upload_file_minidump.{{id}}.dmp'
-)
-# Ensure array members are objects and build lookup
-customFields.filesById = {}
-for field, idx in customFields.files
-  if typeof field is 'string'
-    customFields.files[idx] =
-      name: field
-  customFields.filesById[customFields.files[idx].name] = customFields.files[idx]
+# Add default elements if they don't exist on the settings path with list.
+combineConfigList = (path, defaults, comparator) ->
+  comparator = comparator || (element) -> return element if element == this # Default == operator
+  result = nconf.get(path)
+  result.reverse()
+  defaults.map (element) ->
+    result.push(element) if not result.find(comparator, element)    
+  result.reverse()
+  nconf.set(path, result)
 
-# Ensure array
-customFields.params = customFields.params || []
+# Adds the default elements. Precondition: configuration and defaults must be normalized file lists
+combineConfigFileList = (path, defaults) ->
+  comparator = comparator || (element) -> return element if element.name == this.name
+  return combineConfigList path, defaults, comparator
 
-# Ensure array members are objects and build lookup
-customFields.paramsById = {}
-for field, idx in customFields.params
-  if typeof field is 'string'
-    customFields.params[idx] =
-      name: field
-  customFields.paramsById[customFields.params[idx].name] = customFields.params[idx]
+# Normalize given file lists
+nconf.set 'crashreports:customFields:files', normalizeFileList(nconf.get('crashreports:customFields:files'))
 
-nconf.set('crashreports:customFields', customFields)
+# Add internal application fields to custom fields
+combineConfigFileList 'crashreports:customFields:files', normalizeFileList([{name: 'upload_file_minidump', downloadAs: '{{id}}.dmp'}])
+combineConfigList 'crashreports:customFields:params', ['product', 'version']
+combineConfigList 'crashreports:customFields:plainParams', ['ip']
+
+combineConfigList 'symbols:customFields:params', []
+combineConfigList 'symbols:customFields:plainParams', []
 
 nconf.getSymbolsPath = -> path.join(nconf.get('dataDir'), 'symbols')
 

@@ -115,12 +115,20 @@ database:
   logging: false
 auth:
   enabled: false
-customFields:
-  files:
-    - name: 'customfile1'
-      downloadAs: 'customfile1.jpg'
-    - name: 'customfile2'
-  params: ['customparam']
+crashreports:
+  order: ['upload_file_minidump', 'product', 'version', 'ip', 'created']
+  customFields:
+    files: [
+        { name: 'customfile1' downloadAs: 'customfile{{id}}.jpg' }
+        { name: 'comments' downloadAs: '{{id}}.txt' }
+        ]
+    params: ['customInstitutionName', 'someOtherAttributeGroupable']
+    plainParams: ['attributeQuiteUngroupable']
+symbols:
+  order: ['os', 'name', 'arch', 'code', 'created' ]
+  customFields:
+    params: ['compiler', 'compilerVersion', 'someOtherAttributeGroupable']
+    plainParams: ['buildTimestamp', 'attributeQuiteUngroupable']
 dataDir: '/home/myuser/.simple-breakpad-server'
 ```
 
@@ -157,7 +165,7 @@ auth:
 
 ### Custom Fields
 
-Place a list of file parameters in the `files` array. These will be stored in the database as blobs and can contain binary data. Non-files should go into the `params` array. These will be stored in the database encoded as strings.  File parameters can either be a simple string, or an object specifying a required `name` (used for upload and download url) and an optional `downloadAs` which specifies what name will be used when downloading.
+Place a list of file parameters in the `files` array. These will be stored in the database as blobs and can contain binary data. Non-files should go into the `params` or `plainParams` array. These will be stored in the database encoded as strings, however `plainParams` won't be classified and thus cannot be queried.
 
 Custom `files` can be downloaded from the `GET /crashreports/<id>/files/<file>` endpoint and custom `params` will be shown on the main page for the crash report.
 
