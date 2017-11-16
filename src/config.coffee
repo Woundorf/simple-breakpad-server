@@ -88,8 +88,8 @@ nconf.set 'crashreports:customFields:files', normalizeFileList(nconf.get('crashr
 
 # Add internal application fields to custom fields
 combineConfigFileList 'crashreports:customFields:files', normalizeFileList([{name: 'upload_file_minidump', downloadAs: '{{id}}.dmp'}])
-combineConfigList 'crashreports:customFields:params', ['product', 'version']
-combineConfigList 'crashreports:customFields:plainParams', ['ip']
+combineConfigList 'crashreports:customFields:params', ['product', 'version', 'os', 'arch', 'reason']
+combineConfigList 'crashreports:customFields:plainParams', ['ip', 'signature', 'address']
 
 combineConfigList 'symbols:customFields:params', []
 combineConfigList 'symbols:customFields:plainParams', []
