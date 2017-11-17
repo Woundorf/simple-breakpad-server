@@ -66,6 +66,7 @@ normalizeFileList = (files) ->
       normalized.downloadAs = element.downloadAs
     else
       normalized.downloadAs = normalized.name + '.{{id}}.bin'
+    normalized.preview = element.preview == true
     return normalized
 
 # Add default elements if they don't exist on the settings path with list.

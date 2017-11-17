@@ -118,10 +118,12 @@ auth:
 crashreports:
   order: ['upload_file_minidump', 'product', 'version', 'ip', 'created']
   customFields:
-    files: [
-        { name: 'customfile1' downloadAs: 'customfile{{id}}.jpg' }
-        { name: 'comments' downloadAs: '{{id}}.txt' }
-        ]
+    files:
+        - name: 'customfile1'
+          downloadAs: 'customfile{{id}}.jpg'
+        - name: 'comments'
+          downloadAs: '{{id}}.txt'
+          preview: true
     params: ['customInstitutionName', 'someOtherAttributeGroupable']
     plainParams: ['attributeQuiteUngroupable']
 symbols:
@@ -167,7 +169,7 @@ auth:
 
 Place a list of file parameters in the `files` array. These will be stored in the database as blobs and can contain binary data. Non-files should go into the `params` or `plainParams` array. These will be stored in the database encoded as strings, however `plainParams` won't be classified and thus cannot be queried.
 
-Custom `files` can be downloaded from the `GET /crashreports/<id>/files/<file>` endpoint and custom `params` will be shown on the main page for the crash report.
+Custom `files` can be downloaded from the `GET /crashreports/<id>/files/<file>` endpoint and custom `params` will be shown on the main page for the crash report. The contents of the file can be shown on the crashreport detail if preview setting is set to true.
 
 For now, if you change this configuration after the database is initialized, you will have to create the tables on your database manually for things to work.
 

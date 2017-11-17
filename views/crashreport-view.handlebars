@@ -13,6 +13,14 @@
     </dd>
   {{/eachInMap}}
 </dl>
+{{#eachInMap fields}}
+{{#if this.preview}}
+<h2>{{titleCase @key}}</h2>
+<pre><code>
+{{this.preview}}
+</code></pre>
+{{/if}}
+{{/eachInMap}}
 <h2>Stackwalk</h2>
 <pre><code>
 {{stackwalk}}

@@ -42,6 +42,11 @@ crashreportToViewJson = (report) ->
   for name, value of Crashreport.attributes
     if value.type instanceof Sequelize.BLOB
       unorderedProps[name] = { path: "/crashreports/#{report.id}/files/#{name}" }
+      config.get("crashreports:customFields:files").find (element) ->
+        if element.name == name
+          if element.preview
+            unorderedProps[name]['preview'] = report[name] if report[name]
+          return true
 
   json = report.toJSON()
   for k,v of json
@@ -353,8 +358,7 @@ run = ->
         return res.status(404).send 'Crash report field is not a file'
 
       # Find appropriate downloadAs file name
-      fileDefinition = config.get("crashreports:customFields:files").find(() -> return this if this.name = field)
-      console.log fileDefinition
+      fileDefinition = config.get("crashreports:customFields:files").find((element) -> return element if element.name == field)
       filename = fileDefinition.downloadAs.replace('{{id}}', req.params.id)
 
       res.setHeader('content-disposition', "attachment; filename=\"#{filename}\"")
