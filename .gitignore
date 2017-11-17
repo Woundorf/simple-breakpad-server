@@ -8,3 +8,6 @@
 
 # WebStorm project files
 /.idea
+
+# Netbeans project files
+/nbproject/private/
